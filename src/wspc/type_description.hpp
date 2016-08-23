@@ -25,6 +25,7 @@
 
 #include <kl/ctti.hpp>
 #include <kl/enum_reflector.hpp>
+#include <kl/enum_traits.hpp>
 #include <kl/stream_join.hpp>
 
 #include <sstream>
@@ -32,6 +33,11 @@
 
 namespace wspc {
 namespace detail {
+
+template <typename T>
+using is_reflectable_enum =
+    std::integral_constant<bool, std::is_enum<T>::value &&
+                                     kl::enum_traits<T>::support_range>;
 
 struct visitor
 {
@@ -45,7 +51,7 @@ struct visitor
         strm_ << "  " << f.name()
               << " :: " << kl::ctti::name<typename FieldInfo::type>();
         visit_enum(std::forward<FieldInfo>(f),
-                   std::is_enum<typename FieldInfo::type>{});
+                   is_reflectable_enum<typename FieldInfo::type>{});
         ++current_field_index_;
     }
 
@@ -55,9 +61,11 @@ private:
     {
         using enum_type = std::remove_cv_t<typename FieldInfo::type>;
         using enum_reflector = kl::enum_reflector<enum_type>;
+        using enum_traits = kl::enum_traits<enum_type>;
         strm_ << " (";
         auto joiner = kl::make_outstream_joiner(strm_, ", ");
-        for (size_t i = 0; i < enum_reflector::count(); ++i)
+        for (auto i = enum_traits::min_value(); i < enum_traits::max_value();
+             ++i)
         {
             if (const auto str =
                     enum_reflector::to_string(static_cast<enum_type>(i)))
