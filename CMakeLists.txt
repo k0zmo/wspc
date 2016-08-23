@@ -103,3 +103,6 @@ target_include_directories(wspc PUBLIC src)
 target_include_directories(wspc PRIVATE external/websocketpp)
 target_link_libraries(wspc PRIVATE ${Boost_LIBRARIES})
 target_link_libraries(wspc PUBLIC kl)
+
+add_executable(example example/server.cpp)
+target_link_libraries(example wspc)
