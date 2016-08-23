@@ -48,8 +48,25 @@ struct visitor
     {
         if (current_field_index_)
             strm_ << ", ";
-        strm_ << "  " << f.name()
-              << " :: " << kl::ctti::name<typename FieldInfo::type>();
+        strm_ << "  " << f.name() << " :: ";
+
+        for (auto type_name = kl::ctti::name<typename FieldInfo::type>();
+             *type_name != 0; ++type_name)
+        {
+            switch (*type_name)
+            {
+            case '<':
+                strm_ << "&lt;";
+                break;
+            case '>':
+                strm_ << "&gt;";
+                break;
+            default:
+                strm_ << *type_name;
+                break;
+            }
+        }
+
         visit_enum(std::forward<FieldInfo>(f),
                    is_reflectable_enum<typename FieldInfo::type>{});
         ++current_field_index_;
