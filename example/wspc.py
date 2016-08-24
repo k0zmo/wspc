@@ -3,11 +3,13 @@ from ws4py.client.threadedclient import WebSocketClient
 from queue import Queue
 import json
 
+
 class JsonSerializable(object):
     def to_JSON(self):
-        return json.dumps(self, 
-            default=lambda o: o.__dict__,
-            sort_keys=True, indent=4)
+        return json.dumps(self,
+                          default=lambda o: o.__dict__,
+                          sort_keys=True, indent=4)
+
 
 class Request(JsonSerializable):
     id = 0
@@ -18,7 +20,9 @@ class Request(JsonSerializable):
         self.method = method
         self.params = args if args else kwargs
 
+
 class EventRegistry:
+
     class EventCallback:
         def __init__(self, cb, one_shot):
             self.cb = cb
@@ -42,6 +46,7 @@ class EventRegistry:
             if self.cbs[name].one_shot and ret:
                 del self.cbs[name]
 
+
 class MessageValidator:
     @staticmethod
     def is_err(msg):
@@ -56,6 +61,7 @@ class MessageValidator:
     @staticmethod
     def is_notif(msg):
         return 'method' in msg and 'params' in msg
+
 
 class Client(WebSocketClient):
     def __init__(self, address):
@@ -76,7 +82,7 @@ class Client(WebSocketClient):
             if MessageValidator.is_response(resp):
                 # Is this response on our list of pending ones?
                 if int(resp['id']) in self.req_id:
-                    # Put the response dict onto the queue 
+                    # Put the response dict onto the queue
                     # and remove its ID from pending list
                     self.queue.put(resp['result'])
                     self.req_id.remove(int(resp['id']))
@@ -102,7 +108,7 @@ class Client(WebSocketClient):
     def __getattr__(self, name):
         def func_wrapper(*args, **kwargs):
             # Create a Request object and enqueued its ID so
-            # we can associate request with the response 
+            # we can associate request with the response
             request = Request(name, *args, **kwargs)
             self.req_id.append(request.id)
             # Send as a JSON

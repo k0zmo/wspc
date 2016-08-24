@@ -69,7 +69,7 @@ elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
                         Please use a different C++ compiler.")
     endif()
 
-    if(CMAKE_BUILD_TYPE STREQUAL DEBUG)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         add_definitions("-D_GLIBCXX_DEBUG")
     else()
         # Default symbol visibility (smaller binaries)
@@ -83,7 +83,6 @@ set(WSPC_SOURCE_FILES
     src/wspc/service_handler.cpp
     src/wspc/service.cpp
     src/wspc/transport.cpp
-    src/wspc/type_description.cpp
     src/wspc/typed_service_handler.cpp
 )
 

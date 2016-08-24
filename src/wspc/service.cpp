@@ -134,14 +134,8 @@ std::string service::process_message(const std::string& payload)
         }
         else if (params.is_array())
         {
-            static const auto empty_json_object =
-                json11::Json{json11::Json::object{}};
-            const auto& arr = params.array_items();
-
-            return wrap_response(json11::Json::object{
-                {"result",
-                 handler(arr.size() == 1 ? arr[0] : empty_json_object)},
-                {"id", id}});
+            return wrap_response(
+                json11::Json::object{{"result", handler(params)}, {"id", id}});
         }
         else
         {

@@ -11,7 +11,8 @@ try:
     c.callbacks.ping_event(
         lambda tick: print('ping - tick: {}'.format(tick)))
 
-    ping_response = c.__getattr__('ping')() # can't use directly c.ping() since it's already defined
+    # can't use directly c.ping() since it's already defined
+    ping_response = c.__getattr__('ping')()
     print('ping() response: {}'.format(ping_response['tick']))
 
     add_resp = c.calculate(arg1=20, arg2=5, op='add', comment='adding 20 to 5')
@@ -20,8 +21,13 @@ try:
     divide_resp = c.calculate(arg1=16, arg2=5, op='divide')
     print('calculate(16, 5, ''divide'') response: {}'.format(divide_resp))
 
+    ops = ['add', 'subtract', 'multiply', 'divide']
+    for i in range(10):
+        print('{0} "{2}" {1} = {3}'.format(16 * i, 5 + i,
+                                           ops[i % 4], c.calculate2(16 * i, 5 + i, ops[i % 4])))
+
     # Wrong function
-    c.calculate2()
+    c.calclate()
 
     # wait for events
     c.run_forever()
