@@ -1,4 +1,5 @@
-﻿import wspc
+﻿from __future__ import print_function
+import wspc
 
 try:
     c = wspc.Client('ws://localhost:9001')
@@ -8,10 +9,9 @@ try:
     '''
 
     c.callbacks.ping_event(
-        lambda tick: print('ping - tick: {}'.format(tick)),
-        one_shot=False)
+        lambda tick: print('ping - tick: {}'.format(tick)))
 
-    ping_response = c.ping();
+    ping_response = c.__getattr__('ping')() # can't use directly c.ping() since it's already defined
     print('ping() response: {}'.format(ping_response['tick']))
 
     add_resp = c.calculate(arg1=20, arg2=5, op='add', comment='adding 20 to 5')

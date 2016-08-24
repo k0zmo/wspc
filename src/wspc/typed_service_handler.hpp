@@ -35,6 +35,8 @@
 
 namespace wspc {
 
+// Implementation of service_handler that automatically deserializes
+// incoming JSON into proper struct and serializes outcoming response.
 template <typename Signature>
 class typed_service_handler;
 
@@ -87,6 +89,7 @@ struct get_signature
 };
 } // namespace detail
 
+// Functional wrapper over typed_service_handler
 template <typename Func,
           typename Signature = typename detail::get_signature<Func>::type>
 class typed_service_handler_func : public wspc::typed_service_handler<Signature>
@@ -108,6 +111,11 @@ private:
     std::function<Signature> call_;
 };
 
+// Factory for service_handler_func.
+// Usage: make_service_handler([&](const some_request& req)
+//                             { return some_response{...}; });
+// Factory function autodetects Request and Response types iff lambda is defined
+// in terms of <Response(Request)>.
 template <typename Func>
 wspc::service_handler_ptr make_service_handler(Func&& func)
 {

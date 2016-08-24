@@ -28,18 +28,18 @@ class EventRegistry:
         self.cbs = {}
 
     def __getattr__(self, name):
-        def wrapper(cb, one_shot=True):
+        def wrapper(cb, one_shot=False):
             self._register_event(name, cb, one_shot)
         return wrapper
 
     def _register_event(self, name, cb, one_shot):
         if not name in self.cbs:
-            self.cbs[name] = self.EventCallback(cb, one_shot)
+            self.cbs[name] = EventRegistry.EventCallback(cb, one_shot)
 
     def call(self, name, **kwargs):
         if name in self.cbs:
-            self.cbs[name].cb(**kwargs)
-            if self.cbs[name].one_shot:
+            ret = self.cbs[name].cb(**kwargs)
+            if self.cbs[name].one_shot and ret:
                 del self.cbs[name]
 
 class MessageValidator:
@@ -51,7 +51,7 @@ class MessageValidator:
     def is_response(msg):
         return 'result' in msg and \
                not 'error' in msg and \
-               'id' in msg 
+               'id' in msg
 
     @staticmethod
     def is_notif(msg):
@@ -64,6 +64,9 @@ class Client(WebSocketClient):
         self.req_id = []
         self.queue = Queue(1)
         self.connect()
+
+    def _event_received(self, event_name, args):
+        self.event_registry.call(event_name, **args)
 
     def received_message(self, m):
         try:
@@ -79,9 +82,9 @@ class Client(WebSocketClient):
                     self.req_id.remove(int(resp['id']))
             elif MessageValidator.is_notif(resp):
                 # Notify of inbound event from the server
-                self.event_registry.call(resp['method'], **resp['params'])
+                self._event_received(resp['method'], resp['params'])
         except Exception as e:
-            print('Error response:', e)
+            print('Invalid response:', str(m), e)
             self.queue.put(e)
 
     def closed(self, code, reason=None):

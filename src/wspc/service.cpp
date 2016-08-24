@@ -147,7 +147,7 @@ std::string service::process_message(const std::string& payload)
         {
             return wrap_response(make_error_response(
                 id, fault_code::invalid_params,
-                "wrong type of 'params' - expceted array or object"));
+                "wrong type of 'params' - expected array or object"));
         }
     }
     catch (invalid_parameters_exception& ex)
