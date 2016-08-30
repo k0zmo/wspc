@@ -127,12 +127,7 @@ std::string service::process_message(const std::string& payload)
         // If params is an object we treat them as a struct (we can get fields
         // names in reflectable struct in contrast to function/lambdas
         // arguments)
-        if (params.is_object())
-        {
-            return wrap_response(
-                json11::Json::object{{"result", handler(params)}, {"id", id}});
-        }
-        else if (params.is_array())
+        if (params.is_object() || params.is_array())
         {
             return wrap_response(
                 json11::Json::object{{"result", handler(params)}, {"id", id}});

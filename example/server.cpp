@@ -84,7 +84,7 @@ int main()
 
     service.register_handler(
         "calculate2",
-        // ### TODO: Can't use boost::optional<> here since to_json() counts
+        // Can't use boost::optional<> here since to_json() counts
         // array elements and bail outs if it doesn't match with a tuple's size
         wspc::make_service_handler([](double arg1, double arg2, operation op) {
             std::cout << "calculate(" << arg1 << ", " << arg2 << ", op: "
@@ -111,7 +111,7 @@ int main()
 
     service.register_handler(
         "ping",
-        wspc::make_service_handler_kv([](const ping_request&) {
+        wspc::make_service_handler([](const ping_request&) {
             using namespace std::string_literals;
             using namespace std::chrono;
             auto tick = static_cast<unsigned>(
@@ -122,7 +122,7 @@ int main()
 
     service.register_handler(
         "calculate",
-        wspc::make_service_handler_kv([](const work_request& work) {
+        wspc::make_service_handler([](const work_request& work) {
             std::cout << "calculate(" << work.arg1 << ", " << work.arg2
                       << ", op: "
                       << kl::enum_reflector<operation>::to_string(work.op)

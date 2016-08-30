@@ -37,7 +37,7 @@ class EventRegistry:
         return wrapper
 
     def _register_event(self, name, cb, one_shot):
-        if not name in self.cbs:
+        if name not in self.cbs:
             self.cbs[name] = EventRegistry.EventCallback(cb, one_shot)
 
     def call(self, name, **kwargs):
