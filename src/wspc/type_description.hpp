@@ -37,43 +37,55 @@ namespace wspc {
 
 template <typename T>
 std::string get_type_info();
+template <typename T>
+void get_type_info(std::stringstream& strm);
 
 namespace detail {
 
-template <typename T>
-using is_reflectable_enum =
-    std::integral_constant<bool, std::is_enum<T>::value &&
-                                     kl::enum_traits<T>::support_range>;
-
 void sanitize_html(std::stringstream& strm, const char* in);
 
-struct visitor
+template <typename T>
+struct is_tuple : std::false_type {};
+template <typename... Ts>
+struct is_tuple<std::tuple<Ts...>> : std::true_type {};
+
+template <typename T>
+using is_reflectable_enum =
+    kl::bool_constant<std::is_enum<T>::value &&
+                      kl::enum_traits<T>::support_range>;
+
+template <typename T>
+using is_custom_type_info =
+    kl::bool_constant<kl::is_reflectable<T>::value || is_tuple<T>::value ||
+                      is_reflectable_enum<T>::value>;
+
+struct type_info_writer
 {
-    explicit visitor(std::stringstream& strm) : strm_{strm} {}
-
-    template <typename FieldInfo>
-    void operator()(FieldInfo f)
+    template <typename T, kl::enable_if<kl::is_reflectable<T>> = 0>
+    static void write(std::stringstream& strm)
     {
-        if (current_field_index_)
-            strm_ << ", ";
-        strm_ << "  " << f.name() << " :: ";
-
-        sanitize_html(strm_, kl::ctti::name<typename FieldInfo::type>());
-
-        visit_enum(std::forward<FieldInfo>(f),
-                   is_reflectable_enum<typename FieldInfo::type>{});
-        ++current_field_index_;
+        sanitize_html(strm, kl::ctti::name<T>());
+        strm << " { ";
+        kl::ctti::reflect<T>(visitor{strm});
+        strm << " }";
     }
 
-private:
-    template <typename FieldInfo>
-    void visit_enum(FieldInfo, std::true_type)
+    template <typename T, kl::enable_if<is_tuple<T>> = 0>
+    static void write(std::stringstream& strm)
     {
-        using enum_type = std::remove_cv_t<typename FieldInfo::type>;
+        write_tuple<T>(strm, kl::make_tuple_indices<T>{});
+    }
+
+    template <typename T, kl::enable_if<is_reflectable_enum<T>> = 0>
+    static void write(std::stringstream& strm)
+    {
+        sanitize_html(strm, kl::ctti::name<T>());
+
+        using enum_type = std::remove_cv_t<T>;
         using enum_reflector = kl::enum_reflector<enum_type>;
         using enum_traits = kl::enum_traits<enum_type>;
-        strm_ << " (";
-        auto joiner = kl::make_outstream_joiner(strm_, ", ");
+        strm << " (";
+        auto joiner = kl::make_outstream_joiner(strm, ", ");
         for (auto i = enum_traits::min_value(); i < enum_traits::max_value();
              ++i)
         {
@@ -83,69 +95,70 @@ private:
                 joiner = str;
             }
         }
-        strm_ << ")";
+        strm << ")";
     }
 
-    template <typename FieldInfo>
-    void visit_enum(FieldInfo, std::false_type) {}
+private:
+    struct visitor
+    {
+        explicit visitor(std::stringstream& strm) : strm_{strm} {}
 
-    std::stringstream& strm_;
-    std::size_t current_field_index_{0};
+        template <typename FieldInfo>
+        void operator()(FieldInfo f)
+        {
+            if (current_field_index_)
+                strm_ << ", ";
+            strm_ << "  ";
+            sanitize_html(strm_, f.name());
+            strm_ << " :: ";
+            get_type_info<typename FieldInfo::type>(strm_);
+            ++current_field_index_;
+        }
+
+    private:
+        std::stringstream& strm_;
+        std::size_t current_field_index_{0};
+    };
+
+    template <typename T, std::size_t... Is>
+    static void write_tuple(std::stringstream& strm, kl::index_sequence<Is...>)
+    {
+        strm << "[ ";
+        auto joiner = kl::make_outstream_joiner(strm, ", ");
+        using swallow = std::initializer_list<int>;
+        (void)swallow{
+            (joiner = get_type_info<std::tuple_element_t<Is, T>>(), 0)...};
+        strm << " ]";
+    }
 };
 
 template <typename T>
-std::string get_type_info_tuple_impl(std::false_type /*is_tuple*/)
+void get_type_info_impl(std::stringstream& strm,
+                        std::true_type /*is_custom_type_info*/)
 {
-    std::stringstream strm;
+    type_info_writer::write<T>(strm);
+}
+
+template <typename T>
+void get_type_info_impl(std::stringstream& strm,
+                        std::false_type /*is_custom_type_info*/)
+{
     sanitize_html(strm, kl::ctti::name<T>());
-    return strm.str();
-}
-
-template <typename T, typename Joiner, std::size_t... Is>
-void get_type_info_tuple_elems(Joiner& joiner, kl::index_sequence<Is...>)
-{
-    using swallow = std::initializer_list<int>;
-    (void)swallow{
-        (joiner = get_type_info<std::tuple_element_t<Is, T>>(), 0)...};
-}
-
-template <typename T>
-std::string get_type_info_tuple_impl(std::true_type /*is_tuple*/)
-{
-    std::stringstream strm;
-    strm << "[ ";
-    auto joiner = kl::make_outstream_joiner(strm, ", ");
-    get_type_info_tuple_elems<T>(joiner, kl::make_tuple_indices<T>{});
-    strm << " ]";
-    return strm.str();
-}
-
-template <typename T>
-struct is_tuple : std::false_type {};
-template <typename... Ts>
-struct is_tuple<std::tuple<Ts...>> : std::true_type {};
-
-template <typename T>
-std::string get_type_info_impl(std::false_type /*is_reflectable*/)
-{
-    return get_type_info_tuple_impl<T>(is_tuple<T>{});
-}
-
-template <typename T>
-std::string get_type_info_impl(std::true_type /*is_reflectable*/)
-{
-    std::stringstream strm;
-    strm << kl::ctti::name<T>() << " { ";
-    kl::ctti::reflect<T>(visitor{strm});
-    strm << " }";
-    return strm.str();
 }
 } // namespace detail
 
 template <typename T>
+void get_type_info(std::stringstream& strm)
+{
+    detail::get_type_info_impl<T>(strm, detail::is_custom_type_info<T>{});
+}
+
+template <typename T>
 std::string get_type_info()
 {
-    return detail::get_type_info_impl<T>(kl::is_reflectable<T>{});
+    std::stringstream strm;
+    get_type_info<T>(strm);
+    return strm.str();
 }
 } // namespace wspc
 

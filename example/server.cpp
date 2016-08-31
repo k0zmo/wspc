@@ -47,6 +47,7 @@ KL_DEFINE_REFLECTABLE(work_request, (
 ))
 
 // Just to get prettier output on type_description
+// ### TODO: New macro for this kind of usage (+ maybe custom type name)
 KL_DEFINE_REFLECTABLE(std::string, _)
 KL_DEFINE_REFLECTABLE(boost::optional<std::string>, _)
 
