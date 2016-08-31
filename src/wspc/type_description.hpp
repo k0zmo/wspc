@@ -27,17 +27,25 @@
 #include <kl/enum_reflector.hpp>
 #include <kl/enum_traits.hpp>
 #include <kl/stream_join.hpp>
+#include <kl/index_sequence.hpp>
+#include <kl/tuple.hpp>
 
 #include <sstream>
 #include <type_traits>
 
 namespace wspc {
+
+template <typename T>
+std::string get_type_info();
+
 namespace detail {
 
 template <typename T>
 using is_reflectable_enum =
     std::integral_constant<bool, std::is_enum<T>::value &&
                                      kl::enum_traits<T>::support_range>;
+
+void sanitize_html(std::stringstream& strm, const char* in);
 
 struct visitor
 {
@@ -50,22 +58,7 @@ struct visitor
             strm_ << ", ";
         strm_ << "  " << f.name() << " :: ";
 
-        for (auto type_name = kl::ctti::name<typename FieldInfo::type>();
-             *type_name != 0; ++type_name)
-        {
-            switch (*type_name)
-            {
-            case '<':
-                strm_ << "&lt;";
-                break;
-            case '>':
-                strm_ << "&gt;";
-                break;
-            default:
-                strm_ << *type_name;
-                break;
-            }
-        }
+        sanitize_html(strm_, kl::ctti::name<typename FieldInfo::type>());
 
         visit_enum(std::forward<FieldInfo>(f),
                    is_reflectable_enum<typename FieldInfo::type>{});
@@ -101,6 +94,44 @@ private:
 };
 
 template <typename T>
+std::string get_type_info_tuple_impl(std::false_type /*is_tuple*/)
+{
+    std::stringstream strm;
+    sanitize_html(strm, kl::ctti::name<T>());
+    return strm.str();
+}
+
+template <typename T, typename Joiner, std::size_t... Is>
+void get_type_info_tuple_elems(Joiner& joiner, kl::index_sequence<Is...>)
+{
+    using swallow = std::initializer_list<int>;
+    (void)swallow{
+        (joiner = get_type_info<std::tuple_element_t<Is, T>>(), 0)...};
+}
+
+template <typename T>
+std::string get_type_info_tuple_impl(std::true_type /*is_tuple*/)
+{
+    std::stringstream strm;
+    strm << "[ ";
+    auto joiner = kl::make_outstream_joiner(strm, ", ");
+    get_type_info_tuple_elems<T>(joiner, kl::make_tuple_indices<T>{});
+    strm << " ]";
+    return strm.str();
+}
+
+template <typename T>
+struct is_tuple : std::false_type {};
+template <typename... Ts>
+struct is_tuple<std::tuple<Ts...>> : std::true_type {};
+
+template <typename T>
+std::string get_type_info_impl(std::false_type /*is_reflectable*/)
+{
+    return get_type_info_tuple_impl<T>(is_tuple<T>{});
+}
+
+template <typename T>
 std::string get_type_info_impl(std::true_type /*is_reflectable*/)
 {
     std::stringstream strm;
@@ -108,12 +139,6 @@ std::string get_type_info_impl(std::true_type /*is_reflectable*/)
     kl::ctti::reflect<T>(visitor{strm});
     strm << " }";
     return strm.str();
-}
-
-template <typename T>
-std::string get_type_info_impl(std::false_type /*is_reflectable*/)
-{
-    return kl::ctti::name<T>();
 }
 } // namespace detail
 

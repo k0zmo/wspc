@@ -68,16 +68,15 @@ public:
         }
     }
 
-    // ### TODO
-    /*std::string request_description() const override
+    std::string request_description() const override
     {
-        return get_type_info<std::decay_t<Request>>();
+        return get_type_info<tuple_type>();
     }
 
     std::string response_description() const override
     {
-        return get_type_info<std::decay_t<Response>>();
-    }*/
+        return get_type_info<return_type>();
+    }
 
 protected:
     virtual Return handle(const tuple_type& args) = 0;
