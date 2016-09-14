@@ -38,6 +38,54 @@ namespace wspc {
 
 namespace detail {
 
+// Implementation of service handler that doesn't read any request data (i.e its
+// argument is void type), calls appropriate handle() method and finally
+// serializes outgoing response.
+template <typename Return>
+class service_handler_void : public wspc::service_handler
+{
+protected:
+    using return_type = Return;
+
+public:
+    json11::Json operator()(const json11::Json&) override
+    {
+        const auto resp = handle();
+        return kl::to_json(resp);
+    }
+
+    std::string request_description() const override
+    {
+        return "void";
+    }
+
+    std::string response_description() const override
+    {
+        return get_type_info<return_type>();
+    }
+
+protected:
+    virtual Return handle() = 0;
+};
+
+// Functional wrapper over service_handler_void
+template <typename Func,
+          typename Return = typename kl::func_traits<Func>::return_type>
+class service_handler_void_func : public service_handler_void<Return>
+{
+    using super_type = service_handler_void<Return>;
+    using return_type = typename super_type::return_type;
+
+public:
+    service_handler_void_func(Func func) : call_{std::move(func)} {}
+
+protected:
+    return_type handle() override { return call_(); }
+
+private:
+    std::function<return_type()> call_;
+};
+
 // Implementation of service_handler that automatically deserializes
 // incoming JSON into proper tuple, forwards it to handle() method and finally
 // serializes outgoing response.
@@ -156,8 +204,7 @@ protected:
 // Functional wrapper over service_handler_kv
 template <typename Func,
           typename Signature = typename kl::func_traits<Func>::signature_type>
-class service_handler_kv_func
-    : public service_handler_kv<Signature>
+class service_handler_kv_func : public service_handler_kv<Signature>
 {
     using super_type = service_handler_kv<Signature>;
     using response_type = typename super_type::response_type;
@@ -205,22 +252,45 @@ using is_key_value_arg = std::integral_constant<
 // - it has no defined reflectable fields (using KL_DEFINE_REFLECTABLE macro)
 //   and its not declared as a reference
 
+// Tag-dispatching based on request's type category: tuple, key-value or parameterless
+enum class request_category { tuple, key_value, void_ };
+using tuple_type =
+    std::integral_constant<request_category, request_category::tuple>;
+using key_value_type =
+    std::integral_constant<request_category, request_category::key_value>;
+using void_type =
+    std::integral_constant<request_category, request_category::void_>;
+
+template <typename Func, typename = kl::void_t<>>
+struct get_request_type : std::conditional_t<is_key_value_arg<Func>::value,
+                                             key_value_type, tuple_type>
+{};
 template <typename Func>
-wspc::service_handler_ptr
-    make_service_handler(Func&& func, std::false_type /*is_key_value_arg*/)
+struct get_request_type<
+    Func, kl::void_t<std::enable_if_t<kl::func_traits<Func>::arity == 0>>>
+    : void_type
+{};
+
+template <typename Func>
+wspc::service_handler_ptr make_service_handler(Func&& func, tuple_type)
 {
     return std::make_unique<wspc::detail::service_handler_tup_func<Func>>(
         std::forward<Func>(func));
 }
 
 template <typename Func>
-wspc::service_handler_ptr
-    make_service_handler(Func&& func, std::true_type /*is_key_value_arg*/)
+wspc::service_handler_ptr make_service_handler(Func&& func, key_value_type)
 {
     return std::make_unique<wspc::detail::service_handler_kv_func<Func>>(
         std::forward<Func>(func));
 }
 
+template <typename Func>
+wspc::service_handler_ptr make_service_handler(Func&& func, void_type)
+{
+    return std::make_unique<wspc::detail::service_handler_void_func<Func>>(
+        std::forward<Func>(func));
+}
 } // namespace detail
 
 // Factory for service_handler_func or service_handler_kv_func.
@@ -231,13 +301,13 @@ wspc::service_handler_ptr
 // Factory function autodetects:
 //  - request's argument and response types. None of them can be void.
 //  - Request and Response types iff lambda is defined in terms of
-//    <Response(Request)>. Neither Response nor Request cannot be void types
-// ### TODO: Lift up these constraints of non-void
+//    <Response(Request)>. Response cannot be a void type
+// ### TODO: Lift up this constraint
 template <typename Func>
 wspc::service_handler_ptr make_service_handler(Func&& func)
 {
     return detail::make_service_handler(std::forward<Func>(func),
-                                        detail::is_key_value_arg<Func>{});
+                                        detail::get_request_type<Func>{});
 }
 } // namespace wspc
 

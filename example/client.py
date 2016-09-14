@@ -15,6 +15,9 @@ try:
     ping_response = c.__getattr__('ping')()
     print('ping() response: {}'.format(ping_response['tick']))
 
+    ping2_response = c.ping2()
+    print('ping2() response: {}'.format(ping2_response))
+
     add_resp = c.calculate(arg1=20, arg2=5, op='add', comment='adding 20 to 5')
     print('calculate(20, 5, ''add'') response: {}'.format(add_resp))
 

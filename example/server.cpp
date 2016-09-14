@@ -111,6 +111,17 @@ int main()
         }));
 
     service.register_handler(
+        "ping2", 
+        wspc::make_service_handler([&] {
+            using namespace std::string_literals;
+            using namespace std::chrono;
+            auto tick = static_cast<unsigned>(
+                duration_cast<seconds>(steady_clock::now().time_since_epoch())
+                    .count());
+            return tick;
+        }));
+
+    service.register_handler(
         "ping",
         wspc::make_service_handler([](const ping_request&) {
             using namespace std::string_literals;
