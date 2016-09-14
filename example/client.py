@@ -21,6 +21,11 @@ try:
     divide_resp = c.calculate(arg1=16, arg2=5, op='divide')
     print('calculate(16, 5, ''divide'') response: {}'.format(divide_resp))
 
+    # We can also use *args instead of **kwargs. In that case we have to provide
+    # all arguments - even optional ones - in correct order
+    multiply_resp = c.calculate(16, 8, 'multiply', 'comment')
+    print('calculate(16, 8, ''multiply'') response: {}'.format(multiply_resp))
+
     ops = ['add', 'subtract', 'multiply', 'divide']
     for i in range(10):
         print('{0} "{2}" {1} = {3}'.format(16 * i, 5 + i,
