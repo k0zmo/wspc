@@ -110,8 +110,16 @@ int main()
             return ret;
         }));
 
+    // Register handler that doesn't return anything
     service.register_handler(
-        "ping2", 
+        "notify", 
+        wspc::make_service_handler([&](int param) {
+            std::cout << "Got notificiation: " << param << '\n';
+        }));
+
+    // Register handler without any parameters
+    service.register_handler(
+        "ping", 
         wspc::make_service_handler([&] {
             using namespace std::string_literals;
             using namespace std::chrono;
@@ -122,7 +130,7 @@ int main()
         }));
 
     service.register_handler(
-        "ping",
+        "ping2",
         wspc::make_service_handler([](const ping_request&) {
             using namespace std::string_literals;
             using namespace std::chrono;

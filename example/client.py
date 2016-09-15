@@ -11,12 +11,16 @@ try:
     c.callbacks.ping_event(
         lambda tick: print('ping - tick: {}'.format(tick)))
 
-    # can't use directly c.ping() since it's already defined
+    # We can't use directly c.ping() since it's already
+    # defined for ws4py.client.threadedclient.WebSocketClient
     ping_response = c.__getattr__('ping')()
+    print('ping2() response: {}'.format(ping_response))
+
+    ping_response = c.ping2()
     print('ping() response: {}'.format(ping_response['tick']))
 
-    ping2_response = c.ping2()
-    print('ping2() response: {}'.format(ping2_response))
+    notify_resp = c.notify(2)
+    print('notify() response: {}'.format(notify_resp))
 
     add_resp = c.calculate(arg1=20, arg2=5, op='add', comment='adding 20 to 5')
     print('calculate(20, 5, ''add'') response: {}'.format(add_resp))

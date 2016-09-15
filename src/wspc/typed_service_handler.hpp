@@ -34,6 +34,50 @@
 #include <memory>
 #include <string>
 
+#if defined(_MSC_VER)
+#  pragma warning(push)
+   // MSVC complains about using comma inside []
+#  pragma warning(disable: 4709)
+#endif
+
+namespace wspc {
+namespace detail {
+// https://www.reddit.com/r/cpp/comments/52o99u/a_generic_workaround_for_voidreturning_functions/
+// Basically, the overloaded comma operator has an interesting property in that
+// it can take a parameter of type void. If it is the case, then the built-in
+// comma operator is used.
+struct empty_response_t
+{
+    constexpr auto operator[](empty_response_t) const
+    {
+        return empty_response_t{};
+    }
+    
+    template <typename T>
+    constexpr T&& operator[](T&& t) const
+    { 
+        return std::forward<T>(t);
+    }
+
+    template <typename T>
+    constexpr friend T&& operator,(T&& t, empty_response_t)
+    {
+        return std::forward<T>(t);
+    }
+};
+
+static constexpr auto empty_response = empty_response_t{};
+} // namespace detail
+} // namespace wspc
+
+namespace kl {
+template <>
+json11::Json to_json(const wspc::detail::empty_response_t&)
+{
+    return json11::Json::array{};
+}
+} // namespace kl
+
 namespace wspc {
 
 namespace detail {
@@ -50,8 +94,12 @@ protected:
 public:
     json11::Json operator()(const json11::Json&) override
     {
-        const auto resp = handle();
-        return kl::to_json(resp);
+        // If handle() returns a non-void, overloaded operator comma kicks in
+        // returning what handle() returns in the process. Otherwise built-in
+        // comma operator is used resulting in resp_obj to be of type
+        // empty_response_t.
+        const auto resp_obj = empty_response[handle(), empty_response];
+        return kl::to_json(resp_obj);
     }
 
     std::string request_description() const override
@@ -105,8 +153,9 @@ public:
         try
         {
             auto req_obj = kl::from_json<tuple_type>(request);
-            const auto resp = handle(req_obj);
-            return kl::to_json(resp);
+            const auto resp_obj =
+                empty_response[handle(req_obj), empty_response];
+            return kl::to_json(resp_obj);
         }
         catch (kl::json_deserialize_exception& ex)
         {
@@ -176,7 +225,8 @@ public:
         try
         {
             auto req_obj = kl::from_json<std::decay_t<Request>>(request);
-            const auto resp_obj = handle(std::move(req_obj));
+            const auto resp_obj =
+                empty_response[handle(std::move(req_obj)), empty_response];
             return kl::to_json(resp_obj);
         }
         catch (kl::json_deserialize_exception& ex)
@@ -301,8 +351,7 @@ wspc::service_handler_ptr make_service_handler(Func&& func, void_type)
 // Factory function autodetects:
 //  - request's argument and response types. None of them can be void.
 //  - Request and Response types iff lambda is defined in terms of
-//    <Response(Request)>. Response cannot be a void type
-// ### TODO: Lift up this constraint
+//    <Response(Request)>. 
 template <typename Func>
 wspc::service_handler_ptr make_service_handler(Func&& func)
 {
@@ -310,5 +359,9 @@ wspc::service_handler_ptr make_service_handler(Func&& func)
                                         detail::get_request_type<Func>{});
 }
 } // namespace wspc
+
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 
 #endif
