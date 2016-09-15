@@ -78,12 +78,12 @@ enum class fault_code
 };
 
 json11::Json make_error_response(const json11::Json& id, fault_code code,
-                                 const std::string& error_message)
+                                 std::string error_message)
 {
     return json11::Json::object{
         {"id", id},
         {"error", json11::Json::object{{"code", static_cast<int>(code)},
-                                       {"message", error_message}}}};
+                                       {"message", std::move(error_message)}}}};
 }
 
 std::string wrap_response(const json11::Json& response)
@@ -100,13 +100,15 @@ std::string service::process_message(const std::string& payload)
 
     if (!err.empty())
     {
-        return make_error_response(nullptr, fault_code::parse_error, err)
+        return make_error_response(nullptr, fault_code::parse_error,
+                                   std::move(err))
             .dump();
     }
     // Check for existance of 'method' string value
     if (!json.has_shape({{"method", json11::Json::STRING}}, err))
     {
-        return make_error_response(nullptr, fault_code::invalid_request, err)
+        return make_error_response(nullptr, fault_code::invalid_request,
+                                   std::move(err))
             .dump();
     }
 
@@ -116,8 +118,14 @@ std::string service::process_message(const std::string& payload)
     auto handler_ = handlers_.find(method);
     if (handler_ == end(handlers_))
     {
+        std::string msg;
+        msg.reserve(strlen("procedure '") + method.length() +
+                    strlen("' not found"));
+        msg += "procedure '";
+        msg += method;
+        msg += "' not found";
         return wrap_response(make_error_response(
-            id, fault_code::method_not_found, "procedure not found"));
+            id, fault_code::method_not_found, std::move(msg)));
     }
 
     try
