@@ -46,10 +46,12 @@ KL_DEFINE_REFLECTABLE(work_request, (
     arg1, arg2, op, comment
 ))
 
+/* Causes ambiguous call
 // Just to get prettier output on type_description
 // ### TODO: New macro for this kind of usage (+ maybe custom type name)
 KL_DEFINE_REFLECTABLE(std::string, _)
 KL_DEFINE_REFLECTABLE(boost::optional<std::string>, _)
+*/
 
 struct work_response
 {
