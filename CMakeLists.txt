@@ -63,7 +63,7 @@ set(WSPC_HEADER_FILES
 add_library(wspc STATIC
     ${WSPC_SOURCE_FILES}
     ${WSPC_HEADER_FILES})
-target_link_libraries(wspc PRIVATE ${Boost_LIBRARIES})
+target_link_libraries(wspc PUBLIC ${Boost_LIBRARIES})
 target_link_libraries(wspc PUBLIC kl)
 target_include_directories(wspc PUBLIC src)
 target_include_directories(wspc PRIVATE external/websocketpp)
@@ -74,3 +74,4 @@ endif()
 
 add_executable(example example/server.cpp)
 target_link_libraries(example wspc)
+target_include_directories(example SYSTEM PRIVATE ${Boost_INCLUDE_DIRS})

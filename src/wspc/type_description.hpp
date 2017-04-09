@@ -30,6 +30,8 @@
 #include <kl/index_sequence.hpp>
 #include <kl/tuple.hpp>
 
+#include <boost/type_index/ctti_type_index.hpp>
+
 #include <sstream>
 #include <type_traits>
 
@@ -43,6 +45,8 @@ void get_type_info(std::stringstream& strm);
 namespace detail {
 
 void sanitize_html(std::stringstream& strm, const char* in);
+template <typename T>
+void sanitize_html_typename(std::stringstream& strm);
 
 template <typename T>
 struct is_tuple : std::false_type {};
@@ -64,7 +68,7 @@ struct type_info_writer
     template <typename T, kl::enable_if<kl::is_reflectable<T>> = 0>
     static void write(std::stringstream& strm)
     {
-        sanitize_html(strm, kl::ctti::name<T>());
+        sanitize_html_typename<T>(strm);
         strm << " { ";
         kl::ctti::reflect<T>(visitor{strm});
         strm << " }";
@@ -79,7 +83,7 @@ struct type_info_writer
     template <typename T, kl::enable_if<is_reflectable_enum<T>> = 0>
     static void write(std::stringstream& strm)
     {
-        sanitize_html(strm, kl::ctti::name<T>());
+        sanitize_html_typename<T>(strm);
 
         using enum_type = std::remove_cv_t<T>;
         using enum_reflector = kl::enum_reflector<enum_type>;
@@ -133,6 +137,14 @@ private:
 };
 
 template <typename T>
+void sanitize_html_typename(std::stringstream& strm)
+{
+    sanitize_html(strm, boost::typeindex::ctti_type_index::type_id_with_cvr<T>()
+                            .pretty_name()
+                            .c_str());
+}
+
+template <typename T>
 void get_type_info_impl(std::stringstream& strm,
                         std::true_type /*is_custom_type_info*/)
 {
@@ -143,7 +155,7 @@ template <typename T>
 void get_type_info_impl(std::stringstream& strm,
                         std::false_type /*is_custom_type_info*/)
 {
-    sanitize_html(strm, kl::ctti::name<T>());
+    sanitize_html_typename<T>(strm);
 }
 } // namespace detail
 
