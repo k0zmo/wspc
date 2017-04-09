@@ -17,33 +17,8 @@ endif()
 if(MSVC)
     set(Boost_USE_STATIC_LIBS ON)
 endif()
-find_package(Boost 1.58.0 REQUIRED system date_time regex)
-
-if(MSVC)
-    if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-        string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    else()
-        add_compile_options("/W4")
-    endif()
-
-    add_definitions(-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS)
-
-    add_compile_options(/wd4996) # Deprecated stuff
-    add_compile_options(/wd4127) # conditional expression is constant
-    add_compile_options(/wd4100) # unreferenced formal parameter
-
-    if(CMAKE_CL_64)
-        # Visual Studio bails out on debug builds in 64bit mode unless this flag is set...
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
-        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /bigobj")
-    endif()
-elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
-       (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
-
-    # Turn on standard set of warnings
-    add_compile_options(-Wall -pedantic -Wextra)
-    add_compile_options(-Wno-unused-parameter)
-endif()
+find_package(Boost 1.58.0 REQUIRED COMPONENTS
+    system date_time regex)
 
 add_subdirectory(external/kl)
 
@@ -63,15 +38,21 @@ set(WSPC_HEADER_FILES
 add_library(wspc STATIC
     ${WSPC_SOURCE_FILES}
     ${WSPC_HEADER_FILES})
-target_link_libraries(wspc PUBLIC ${Boost_LIBRARIES})
-target_link_libraries(wspc PUBLIC kl)
-target_include_directories(wspc PUBLIC src)
-target_include_directories(wspc PRIVATE external/websocketpp)
-target_include_directories(wspc SYSTEM PRIVATE ${Boost_INCLUDE_DIRS})
+target_include_directories(wspc 
+    PUBLIC src
+    PRIVATE external/websocketpp)
+target_link_libraries(wspc 
+    PRIVATE Boost::disable_autolinking
+    PRIVATE Boost::system
+    PRIVATE Boost::date_time
+    PRIVATE Boost::regex
+    PUBLIC kl)
+
 if(UNIX)
     target_link_libraries(wspc PRIVATE pthread)
 endif()
 
 add_executable(example example/server.cpp)
-target_link_libraries(example wspc)
-target_include_directories(example SYSTEM PRIVATE ${Boost_INCLUDE_DIRS})
+target_link_libraries(example 
+    PUBLIC wspc Boost::boost 
+    PRIVATE Boost::disable_autolinking)
